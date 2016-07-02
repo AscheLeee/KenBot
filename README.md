@@ -4,7 +4,7 @@ A twitch bot for monitoring chat.
 Responds to users' commands.
 Command include:
 
-Public commands:
+# Public commands:
 
 <b>!song</b>
 
@@ -21,7 +21,7 @@ Public commands:
     Summary:
         -Responds with the rank of the streamer in-game. (Will support CS:GO and Dota2)
         
-Private commands (for Mods/Broadcaster):
+# Private commands (for Mods/Broadcaster):
 
 <b>!automsg [message] [frequency]</b>
 
