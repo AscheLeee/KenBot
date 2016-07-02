@@ -8,9 +8,9 @@ Public commands:
 
 <b>!song</b>
 
-  Summary:
-      -Responds with the name of the song currently playing.
-        
+    Summary:
+        -Responds with the name of the song currently playing.
+          
 <b>!level</b>
 
     Summary:
