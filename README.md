@@ -29,9 +29,9 @@ Command include:
         Sets the [message] that is automatically sent every [frequency].
     Arguments:
         [message]:
-           -The message to be sent.
+            The message to be sent.
         [frequency]:
-            -The interval in seconds.
+            The interval in seconds.
           
 <b>!automsg [on/off]</b>
 
@@ -39,4 +39,4 @@ Command include:
         Enables/disables the automsg feature.
     Arguments:
         [on/off]:
-            -Sets the state of the automsg feature. (Can only be 'on' or 'off')
+            Sets the state of the automsg feature. (Can only be 'on' or 'off')
