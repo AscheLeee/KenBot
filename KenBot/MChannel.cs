@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
+﻿using System.Collections.Generic;
 namespace KenBot
 {
     class MChannel
@@ -11,12 +6,16 @@ namespace KenBot
         public string Name;
         public string OwnerNickname;
 
-        public List<string> Viewers;
-        public List<string> Moderators;
+        //public List<string> Viewers;
+        //public List<string> Moderators;
+
+        public HashSet<string> Viewers;
+        public HashSet<string> Moderators;
 
         public MChannel()
         {
-            Viewers = new List<string>();
+            Viewers = new HashSet<string>();
+            Moderators = new HashSet<string>();
         }
     }
 }

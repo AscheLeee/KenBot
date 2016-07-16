@@ -3,20 +3,14 @@ using System.Diagnostics;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
-
 namespace KenBot
 {
-    public class MessageReceivedArgs : EventArgs
-    {
-        public string Content;
-    }
-
-    public delegate void OnMessageReceived(MessageReceivedArgs MRargs);
+    public delegate void OnMessageReceived(string Content);
 
     class MIO
     {
-        public string IP { get; private set; } = "irc.chat.twitch.tv";
-        public int Port { get; private set; } = 6667;
+        public string IP { get; set; } = "irc.chat.twitch.tv";
+        public int Port { get; set; } = 6667;
         public TcpClient TCPClient { get; private set; }
         public NetworkStream Stream { get; private set; }
 
@@ -36,10 +30,10 @@ namespace KenBot
             string Response = string.Empty;
             string Command = "CAP REQ :twitch.tv/membership\r\n";
             AttemptWrite(Command);
-            Response += string.Concat(Command, "\n", AttemptRead());
+            Response += string.Concat(Command, "\r\n", AttemptRead());
             Command = "CAP REQ :twitch.tv/commands\r\n";
             AttemptWrite(Command);
-            Response += string.Concat(Command, "\n", AttemptRead());
+            Response += string.Concat(Command, "\r\n", AttemptRead());
             return Response;
         }
 
@@ -54,19 +48,18 @@ namespace KenBot
 
         public string AttemptRead()
         {
-            Stopwatch Timeout = new Stopwatch();
-            Timeout.Start();
-            while (Timeout.Elapsed.Seconds <= ReadTimeoutDuration.Seconds)
+            Stopwatch TimeoutTimer = new Stopwatch();
+            TimeoutTimer.Start();
+            while (TimeoutTimer.Elapsed.Seconds <= ReadTimeoutDuration.Seconds)
             {
                 if (Stream.DataAvailable)
                 {
                     Buffer = new byte[512];
                     int numOfBytes = Stream.Read(Buffer, 0, Buffer.Length);
                     Response = Encoding.ASCII.GetString(Buffer, 0, numOfBytes);
-                    MessageReceivedArgs MRargs = new MessageReceivedArgs();
-                    MRargs.Content = Response;
-                    MessageReceived.Invoke(MRargs);
-                    Timeout.Stop();
+                    string Content = Response;
+                    MessageReceived.Invoke(Content);
+                    TimeoutTimer.Stop();
                     return Response;
                 }
                 else
@@ -74,6 +67,7 @@ namespace KenBot
                     Response = "No data available in NetworkStream to read.";
                 }
             }
+            TimeoutTimer.Stop();
             return Response;
         }
 
@@ -85,9 +79,8 @@ namespace KenBot
                 Buffer = new byte[512];
                 int numOfBytes = Stream.Read(Buffer, 0, Buffer.Length);
                 Response = Encoding.ASCII.GetString(Buffer, 0, numOfBytes);
-                MessageReceivedArgs MRargs = new MessageReceivedArgs();
-                MRargs.Content = Response;
-                MessageReceived.Invoke(MRargs);
+                string Content = Response;
+                MessageReceived.Invoke(Content);
             }
             while (!Stream.DataAvailable)
                 Thread.Sleep(100);

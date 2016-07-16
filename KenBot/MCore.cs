@@ -1,18 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net.Sockets;
-using System.Text;
-using System.Threading.Tasks;
-
 namespace KenBot
 {
     class MCore
     {
         public MChannel Channel = new MChannel();
-        public MUser User = new MUser();
+        public MBot Bot = new MBot();
         public MIO IO = new MIO();
-        public MHelper Helper = new MHelper();
+        public MStreamer Streamer = new MStreamer();
+        public MHelper.MOTD MOTD = new MHelper.MOTD();
 
         public bool DebugMode = false;
 
@@ -20,17 +17,17 @@ namespace KenBot
 
         public string ConnectToIRC()
         {
-            if (string.IsNullOrEmpty(User.OAuthToken))
+            if (string.IsNullOrWhiteSpace(Bot.OAuthToken))
                 return "'User.OAuthToken' in MCore.ConnectToIRC is NULL/empty.";
-            if (string.IsNullOrEmpty(User.Name))
+            if (string.IsNullOrWhiteSpace(Bot.UserName))
                 return "'User.Name' in MCore.ConnectToIRC is NULL/empty.";
 
-            Command = string.Format("PASS {0}\r\nNICK {1}\r\n", User.OAuthToken, User.Name);
+            Command = string.Format("PASS {0}\r\nNICK {1}\r\n", Bot.OAuthToken, Bot.UserName);
             IO.AttemptWrite(Command);
 
             if (DebugMode)
             {
-                return string.Concat(Command, "\n", IO.AttemptRead());
+                return string.Concat(Command, "\r\n", IO.AttemptRead());
             }
             else
                 return IO.AttemptRead();
@@ -38,9 +35,9 @@ namespace KenBot
 
         public string JoinChannel(string _Channel, MIO IO)
         {
-            if (_Channel[0] != '#')
+            if (!_Channel[0].Equals('#'))
                 _Channel.Insert(0, "#");
-            if (string.IsNullOrEmpty(_Channel))
+            if (string.IsNullOrWhiteSpace(_Channel))
                 return "'_Channel' in MCore.JoinChannel is NULL/empty.";
 
             Channel.Name = _Channel;
@@ -49,13 +46,12 @@ namespace KenBot
             //Update(Response);
             if (DebugMode)
             {
-                return string.Concat(Command, "\n", IO.AttemptRead());
+                return string.Concat(Command, "\r\n", IO.AttemptRead());
             }
-            else
-                return IO.AttemptRead();
+            return IO.AttemptRead();
         }
 
-        public void UpdateChannel(string JoinChannelResponse)
+        public void GatherChannelInfo(string JoinChannelResponse)
         {
             string[] lines =
                 //JoinChannelResponse.Remove(0, JoinChannelResponse.IndexOf("353:"))
@@ -63,15 +59,18 @@ namespace KenBot
                 JoinChannelResponse.Split("\r\n".ToCharArray())
                 .ToArray();
             //353: = #cn firstUserHere1
-            //01234567           8
+            //01234567  8
             int startIndex = 8 + Channel.Name.Length;
-            for (int i = 1; i < lines.Length - 5; i++)
+            string[] Viewers;
+            for (int i = 0; i < lines.Length; i++)
             {
-                lines[i].Remove(0, 8 + Channel.Name.Length);
-                string[] Usernames = lines[i].Split(' ').ToArray();
-                for (int j = 0; j < Usernames.Length; j++)
+                if (lines[0].Substring(0, 3).Equals("353"))
                 {
-                    Channel.Viewers.Add(Usernames[j]);
+                    Viewers = lines[i].Remove(0, startIndex).Split(' ');
+                    for (int j = 0; j < Viewers.Length; j++)
+                    {
+                        Channel.Viewers.Add(Viewers[j]);
+                    }
                 }
             }
         }
@@ -81,29 +80,41 @@ namespace KenBot
             Command = string.Format("PRIVMSG {0} :{1}\r\n", Channel.Name, ".mods");
             IO.AttemptWrite(Command);
 
-            System.Diagnostics.Stopwatch TimeTillTimeout = new System.Diagnostics.Stopwatch();
+            System.Diagnostics.Stopwatch TimeoutTimer = new System.Diagnostics.Stopwatch();
             TimeSpan TimeoutDuration = new TimeSpan(0, 0, 5);
+
             string Response = IO.AttemptRead();
+            List<string> ResponseParts = Response.Split("\r\n".ToArray()).ToList();
 
-            TimeTillTimeout.Start();
+            TimeoutTimer.Start();
 
-            while (!Response.Contains("The moderators of this room are")
-                && TimeTillTimeout.Elapsed.Seconds <= TimeoutDuration.Seconds)
+            //:tmi.twitch.tv NOTICE #moeyyas :The moderators of this room are: kenbawt
+            while (ResponseParts.Last().Length > 57
+                && !ResponseParts.Last().Substring(25 + Channel.Name.Length, 32).Equals("The moderators of this room are:")
+                && TimeoutTimer.Elapsed.Seconds <= TimeoutDuration.Seconds)
             {
-                Response += IO.AttemptRead();
+                string LastMessage = IO.AttemptRead();
+                if (!LastMessage.Equals("No data available in NetworkStream to read."))
+                {
+                    Response += IO.AttemptRead();
+                    ResponseParts.Concat(Response.Split("\r\n".ToArray()).ToList());
+                }
             }
+
+            TimeoutTimer.Stop();
+
             if (DebugMode)
-                return string.Concat(Command, "\n", Response);
+                return string.Concat(Command, "\r\n", Response);
             return Response;
         }
 
         public string SendMessage(string _Message, string _ChannelName)
         {
-            if (_ChannelName[0] != '#') //Channel.Name must be prefixed with '#'.
+            if (!_ChannelName[0].Equals('#')) //Channel.Name must be prefixed with '#'.
                 _ChannelName.Insert(0, "#");
-            if (string.IsNullOrEmpty(_Message))
+            if (string.IsNullOrWhiteSpace(_Message))
                 return "'_Message' in MCore.SendChannelMessage is NULL/empty.";
-            if (string.IsNullOrEmpty(_ChannelName))
+            if (string.IsNullOrWhiteSpace(_ChannelName))
                 return "'_Recipient' in MCore.SendChannelMessage is NULL/empty.";
 
             Command = string.Format("PRIVMSG {0} :{1}\r\n", _ChannelName, _Message);
@@ -113,11 +124,11 @@ namespace KenBot
 
         public string SendMessage(string _Message, string _ChannelName, string _Recipient)
         {
-            if (_ChannelName[0] != '#') //Channel.Name must be prefixed with '#'.
+            if (!_ChannelName[0].Equals('#')) //Channel.Name must be prefixed with '#'.
                 _ChannelName.Insert(0, "#");
-            if (string.IsNullOrEmpty(_Message))
+            if (string.IsNullOrWhiteSpace(_Message))
                 return "'_Message' in MCore.SendPrivateMessage is NULL/empty.";
-            if (string.IsNullOrEmpty(_Recipient))
+            if (string.IsNullOrWhiteSpace(_Recipient))
                 return "'_Recipient' in MCore.SendPrivateMessage is NULL/empty.";
 
             Command = string.Format("PRIVMSG {0} :/w {1} {2}\r\n", _ChannelName, _Recipient, _Message);

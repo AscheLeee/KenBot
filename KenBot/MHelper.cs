@@ -1,12 +1,16 @@
-﻿using System.Collections.Generic;
-
-namespace KenBot
+﻿namespace KenBot
 {
     public class MHelper
     {
-        public List<string> FillModerators()
+        /*public string[] FillModerators(string _NoticeResponse)
         {
-            return new List<string>();
+
+        }*/
+        public class MOTD
+        {
+            public string Message = "Welcome to our channel!";
+            public int Frequency = 600; //In seconds
+            public bool Enabled = true;
         }
     }
 }
