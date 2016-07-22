@@ -1,7 +1,6 @@
-﻿using System;
-namespace KenBot
+﻿namespace KenBot
 {
-    class MStreamer
+    public class MStreamer
     {
         public string SteamName;
         public string Dota2Level;

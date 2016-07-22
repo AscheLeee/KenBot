@@ -76,10 +76,12 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="MChannel.cs" />
+    <Compile Include="MCommand.cs" />
     <Compile Include="MCore.cs" />
     <Compile Include="MHelper.cs" />
     <Compile Include="MIO.cs" />
     <Compile Include="MBot.cs" />
+    <Compile Include="MOTD.cs" />
     <Compile Include="MSettings.cs" />
     <Compile Include="MStreamer.cs" />
     <Compile Include="Program.cs" />
@@ -107,9 +109,6 @@
       <Project>{09dc9361-c84d-482d-a46e-31d44b8306b5}</Project>
       <Name>KenBotGUI</Name>
     </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
-    <Content Include="StreamSong.txt" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

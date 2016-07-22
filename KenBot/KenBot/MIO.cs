@@ -3,35 +3,31 @@ using System.Diagnostics;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
+
 namespace KenBot
 {
     public delegate void OnMessageReceived(string Content);
 
-    class MIO
+    public class MIO
     {
-        public string IP { get; set; } = "irc.chat.twitch.tv";
-        public int Port { get; set; } = 6667;
+        public string IP = "irc.chat.twitch.tv";
+        public int Port = 6667;
         public TcpClient TCPClient { get; private set; }
         public NetworkStream Stream { get; private set; }
-
-        public TimeSpan ReadTimeoutDuration = new TimeSpan(0, 0, 5);
-
-        private Thread ReadThread;
-
         public string Response = string.Empty;
         public byte[] Buffer = new byte[512];
 
+        public TimeSpan ReadTimeoutDuration = new TimeSpan(0, 0, 5);
+        private Thread ReadThread;
+
         public event OnMessageReceived MessageReceived;
 
-        public string Init()
+        public string Initialize()
         {
             TCPClient = new TcpClient(IP, Port);
             Stream = TCPClient.GetStream();
             string Response = string.Empty;
-            string Command = "CAP REQ :twitch.tv/membership\r\n";
-            AttemptWrite(Command);
-            Response += string.Concat(Command, "\r\n", AttemptRead());
-            Command = "CAP REQ :twitch.tv/commands\r\n";
+            string Command = "CAP REQ :twitch.tv/commands\r\n";
             AttemptWrite(Command);
             Response += string.Concat(Command, "\r\n", AttemptRead());
             return Response;
@@ -89,10 +85,7 @@ namespace KenBot
 
         public void AttemptStartReading()
         {
-            ReadThread = new Thread(delegate ()
-            {
-                StartReading();
-            });
+            ReadThread = new Thread(StartReading);
             ReadThread.IsBackground = true;
             ReadThread.Start();
         }

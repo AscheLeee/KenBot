@@ -1,8 +1,10 @@
-using KenBot;
 using System;
 using System.IO;
-using Newtonsoft.Json;
 using System.Linq;
+using Newtonsoft.Json;
+using KenBot;
+using System.Collections.Generic;
+using Newtonsoft.Json.Linq;
 
 namespace Kenbot
 {
@@ -10,24 +12,26 @@ namespace Kenbot
     {
         public static MSettings Settings;
         public static MCore Core;
-        public static string SettingsFileName = "Settings.json";
-        public static string SettingsFileContent = string.Empty;
-        public static string MCoreFileContent = string.Empty;
-        public static string SongfileContent = string.Empty;
-        public static FileStream SettingsFileStream;
-        public static FileStream MCoreFileStream;
+        public static Dictionary<string, MCommand> CommandCollection;
+
+        public static JObject MCoreJSON;
+        public static JObject SettingsJSON;
+        public static JObject CommandCollectionJSON;
+
         public static FileStream SongFileStream;
+        public static FileStream MSettingsFileStream;
+        public static FileStream MCoreFileStream;
+        public static FileStream CommandCollectionFileStream;
+
+        public static string MSettingsFileName = "MSettings.json";
+        public static string MSettingsFileContent = string.Empty;
+        public static string MCoreFileContent = string.Empty;
+        public static string CommandCollectionFileContent = string.Empty;
+        public static string SongFileContent = string.Empty;
 
         static void Main()
         {
             Initialize();
-
-            Core.IO.MessageReceived += MessageReceivedCallback;
-
-            Console.WriteLine(Core.IO.Init());
-            Console.WriteLine(Core.ConnectToIRC());
-            Console.WriteLine(Core.JoinChannel(Core.Channel.Name, Core.IO));
-            Console.WriteLine(Core.SendMessage("Bot is on duty.", Core.Channel.Name));
 
             Core.IO.StartReading();
 
@@ -36,122 +40,219 @@ namespace Kenbot
 
         public static void Initialize()
         {
+            StreamReader FileReader;
             try
             {
-                SettingsFileContent = File.ReadAllText(Path.Combine(Environment.CurrentDirectory, SettingsFileName));
+                MSettingsFileStream = new FileStream(Path.Combine(Environment.CurrentDirectory, "Data", MSettingsFileName), FileMode.Open);
+                MSettingsFileStream.Lock(0, MSettingsFileStream.Length);
+                FileReader = new StreamReader(MSettingsFileStream);
+                MSettingsFileContent = FileReader.ReadToEnd();
+                Settings = JsonConvert.DeserializeObject<MSettings>(MSettingsFileContent);
+                SettingsJSON = JObject.Parse(MSettingsFileContent);
 
-                Settings = JsonConvert.DeserializeObject<MSettings>(SettingsFileContent);
-
-                //SettingsFileStream = new FileStream(Path.Combine(Environment.CurrentDirectory, SettingsFileName), FileMode.Open);
-
-                if (!string.IsNullOrWhiteSpace(Settings.MCoreFileLocation))
-                {
-                    MCoreFileContent = File.ReadAllText(Settings.MCoreFileLocation);
-                }
-                else if (!string.IsNullOrWhiteSpace(Settings.MCoreFileName))
-                {
-                    MCoreFileContent = File.ReadAllText(Path.Combine(Environment.CurrentDirectory, Settings.MCoreFileName));
-                }
-
+                Settings.MCoreFilePath = Path.Combine(Environment.CurrentDirectory, "Data", Settings.MCoreFileName);
+                MCoreFileStream = new FileStream(Settings.MCoreFilePath, FileMode.Open);
+                MCoreFileStream.Lock(0, MSettingsFileStream.Length);
+                FileReader = new StreamReader(MCoreFileStream);
+                MCoreFileContent = FileReader.ReadToEnd();
                 Core = JsonConvert.DeserializeObject<MCore>(MCoreFileContent);
+                MCoreJSON = JObject.Parse(MCoreFileContent);
 
-                if (!string.IsNullOrWhiteSpace(Settings.SongFileLocation))
-                {
-                    SongfileContent = File.ReadAllText(Settings.SongFileLocation);
-                }
-                else if (!string.IsNullOrWhiteSpace(Settings.SongFileName))
-                {
-                    SongfileContent = File.ReadAllText(Path.Combine(Environment.CurrentDirectory, Settings.SongFileName));
-                }
+                Settings.SongFilePath = Path.Combine(Environment.CurrentDirectory, "Data", Settings.SongFileName);
+                SongFileStream = new FileStream(Settings.SongFilePath, FileMode.Open);
+                SongFileStream.Lock(0, SongFileStream.Length);
+                FileReader = new StreamReader(SongFileStream);
+                SongFileContent = FileReader.ReadToEnd();
+
+                Settings.CommandCollectionFilePath = Path.Combine(Environment.CurrentDirectory, "Data", Settings.CommandCollectionFileName);
+                CommandCollectionFileStream = new FileStream(Settings.CommandCollectionFilePath, FileMode.Open);
+                CommandCollectionFileStream.Lock(0, CommandCollectionFileStream.Length);
+                FileReader = new StreamReader(CommandCollectionFileStream);
+                CommandCollectionFileContent = FileReader.ReadToEnd(); FileReader.Close();
+                CommandCollection = JsonConvert.DeserializeObject<Dictionary<string, MCommand>>(CommandCollectionFileContent);
+                CommandCollectionJSON = JObject.Parse(CommandCollectionFileContent);
+
+                Core.IO.MessageReceived += MessageReceivedCallback;
+
+                Core.IO.Initialize();
+                Core.ConnectToIRC();
+
+                string JoinChannelResponse = Core.JoinChannel(Core.Channel.Name, Core.IO);
+                Core.Channel.Viewers = MHelper.GetViewers(JoinChannelResponse);
+
+                string ModsCommandResponse = Core.ListMods();
+                Core.Channel.Moderators = MHelper.GetModerators(ModsCommandResponse);
+
+                Core.SendMessage("Bot is on duty.", Core.Channel.Name, Core.Channel.OwnerNickname);
+                Console.WriteLine("Bot is on duty.");
+
+                Core.MessageOfTheDay.SendMessageMethod = Core.SendMessage;
+                Core.MessageOfTheDay.ChannelName = Core.Channel.Name;
+                Core.MessageOfTheDay.AttemptStartPosting();
             }
             catch (FileNotFoundException)
             {
                 string Message = string.Empty;
-                if (string.IsNullOrWhiteSpace(SettingsFileContent))
+                if (string.IsNullOrWhiteSpace(MSettingsFileContent))
                 {
-                    Message = string.Format("Settings file \"{0}\" was not found in the current directory.\r\nPlease run the settings app to configure your bot.\r\n", SettingsFileName);
+                    Message += string.Format("Settings file \"{0}\" was not found in the current directory.\r\n", MSettingsFileName);
                     Console.Write(Message);
                     Console.ReadKey();
                     Environment.Exit(0);
                 }
                 if (string.IsNullOrWhiteSpace(MCoreFileContent))
                 {
-                    Message = string.Format("MCore file \"{0}\" was not found.\r\nPlease run the settings app to configure your bot.\r\n", Settings.MCoreFileName);
+                    Message += string.Format("MCore file \"{0}\" was not found.\r\n", Settings.MCoreFileName);
                 }
-                if (string.IsNullOrWhiteSpace(SongfileContent))
+                if (string.IsNullOrWhiteSpace(SongFileContent))
                 {
-                    Message = string.Format("Song file \"{0}\" was not found.\r\nPlease run the settings app to configure your bot.\r\n", Settings.SongFileName);
+                    Message += string.Format("Song file \"{0}\" was not found.\r\n", Settings.SongFileName);
+                }
+                if (string.IsNullOrWhiteSpace(CommandCollectionFileContent))
+                {
+                    Message += string.Format("Commands file \"{0}\" was not found.\r\n", Settings.CommandCollectionFileName);
                 }
                 Console.Write(Message);
                 Console.ReadKey();
                 Environment.Exit(0);
             }
         }
+
         public static void ReloadSongFile()
         {
             try
             {
-                if (!string.IsNullOrWhiteSpace(Settings.SongFileLocation))
+                SongFileStream = new FileStream(Settings.SongFilePath, FileMode.Open);
+                using (StreamReader FileReader = new StreamReader(SongFileStream))
                 {
-                    SongfileContent = File.ReadAllText(Settings.SongFileLocation);
-                }
-                else if (!string.IsNullOrWhiteSpace(Settings.SongFileName))
-                {
-                    SongfileContent = File.ReadAllText(Path.Combine(Environment.CurrentDirectory, Settings.SongFileLocation));
+                    SongFileContent = FileReader.ReadToEnd();
                 }
             }
             catch (FileNotFoundException)
             {
                 string Message = string.Empty;
-                if (string.IsNullOrWhiteSpace(SongfileContent))
+                if (string.IsNullOrWhiteSpace(SongFileContent))
                 {
-                    Message = string.Format("Song file \"{0}\" was not found.\r\nPlease run the settings app to configure your bot.\r\n", Settings.SongFileName);
+                    Message = string.Format("Song file \"{0}\" was not found.\r\n", Settings.SongFileName);
                 }
                 Console.Write(Message);
                 Console.ReadKey();
                 Environment.Exit(0);
-
             }
         }
 
-        public static void MessageReceivedCallback(string IRCMessage)
+        public static void ReloadCoreFile()
         {
-            if (!string.IsNullOrWhiteSpace(IRCMessage))
+            try
             {
-                //:nickname!username@nickname.tmi.twitch.tv PRIVMSG #channel :message that was sent
-                int FirstSpace = IRCMessage.IndexOf(' ');
-                if (IRCMessage.Length > FirstSpace + 8
-                    && IRCMessage.Substring(FirstSpace + 1, 7).Equals("PRIVMSG"))
+                MCoreFileStream = new FileStream(Settings.MCoreFilePath, FileMode.Open);
+                using (StreamReader FileReader = new StreamReader(MCoreFileStream))
+                {
+                    MCoreFileContent = FileReader.ReadToEnd();
+                }
+            }
+            catch (FileNotFoundException)
+            {
+                string Message = string.Empty;
+                if (string.IsNullOrWhiteSpace(SongFileContent))
+                {
+                    Message = string.Format("MCore file \"{0}\" was not found.\r\n", Settings.MCoreFileName);
+                }
+                Console.Write(Message);
+                Console.ReadKey();
+                Environment.Exit(0);
+            }
+        }
+
+        public static void ReloadCommandsFile()
+        {
+            try
+            {
+                CommandCollectionFileStream = new FileStream(Settings.CommandCollectionFilePath, FileMode.Open);
+                using (StreamReader FileReader = new StreamReader(CommandCollectionFileStream))
+                {
+                    CommandCollectionFileContent = FileReader.ReadToEnd();
+                }
+            }
+            catch (FileNotFoundException)
+            {
+                string Message = string.Empty;
+                if (string.IsNullOrWhiteSpace(SongFileContent))
+                {
+                    Message = string.Format("Commands file \"{0}\" was not found.\r\n", Settings.CommandCollectionFileName);
+                }
+                Console.Write(Message);
+                Console.ReadKey();
+                Environment.Exit(0);
+            }
+        }
+
+        public static void MessageReceivedCallback(string _IRCMessage)
+        {
+            Console.WriteLine(string.Concat("<", _IRCMessage));
+            if (!string.IsNullOrWhiteSpace(_IRCMessage))
+            {
+                string Response = string.Empty;
+                int FirstSpace = _IRCMessage.IndexOf(' ');
+
+                if (_IRCMessage.Length > 4)
+                {
+                    if (_IRCMessage.Substring(0, 4).Equals("PING"))
+                    {
+                        Response = _IRCMessage.Replace("PING", "PONG");
+                        Core.IO.AttemptWrite(Response);
+                        return;
+                    }
+                }
+                if (!FirstSpace.Equals(-1)
+                   && _IRCMessage.Length > FirstSpace + 8
+                   && _IRCMessage.Substring(FirstSpace + 1, 7).Equals("PRIVMSG"))
                 {
                     #region Chat Message Received
-                    string[] IRCMessageArgs = IRCMessage.Split(' ');
-                    int ExclamationPoint = IRCMessage.IndexOf('!');
-                    int LastSemiColon = IRCMessage.LastIndexOf(':');
-                    int Hashtag = IRCMessage.IndexOf('#');
+                    string[] IRCMessageArgs = _IRCMessage.Split(' ');
+                    int ExclamationPoint = _IRCMessage.IndexOf('!');
+                    int LastSemiColon = _IRCMessage.LastIndexOf(':');
+                    int Hashtag = _IRCMessage.IndexOf('#');
 
-                    string SenderNickname = IRCMessage.Substring(1, ExclamationPoint - 1);
-                    string SenderUsername = IRCMessage.Substring(ExclamationPoint + 1, IRCMessage.IndexOf('@') - ExclamationPoint - 1);
-                    string UserMessage = IRCMessage.Substring(LastSemiColon + 1);
+                    string SenderNickname = _IRCMessage.Substring(1, ExclamationPoint - 1);
+                    string SenderUsername = _IRCMessage.Substring(ExclamationPoint + 1, _IRCMessage.IndexOf('@') - ExclamationPoint - 1);
+                    string UserMessage = _IRCMessage.Substring(LastSemiColon + 1);
+                    UserMessage = UserMessage.Remove(UserMessage.Length - 2);
                     string[] UserMessageArgs = UserMessage.Split(' ');
-                    string Receiver = IRCMessage.Substring(Hashtag + 1, LastSemiColon - Hashtag - 2);
+                    string Receiver = _IRCMessage.Substring(Hashtag + 1, LastSemiColon - Hashtag - 2);
+
                     if (UserMessage[0].Equals('!'))
                     {
-                        string Response = string.Empty;
-
                         switch (UserMessageArgs[0])
                         {
                             case "!commands":
                                 {
-                                    Response = "Available commands: !commands, !song, !level [csgo/dota2], !rank [csgo/dota2]\r\n";
-                                    Core.SendMessage(Response, Core.Channel.Name);
+                                    if (CommandCollection.ContainsKey("!commands"))
+                                    {
+                                        if (CommandCollection["!commands"].IsAvailable)
+                                        {
+                                            Response = "Available commands: !commands, !song, !level [csgo/dota2], !rank [csgo/dota2]\r\n";
+                                            Core.SendMessage(Response, Core.Channel.Name);
+                                            Console.WriteLine(string.Concat(">", Response));
+                                            return;
+                                        }
+                                    }
                                 }
                                 break;
 
                             case "!song":
                                 {
-                                    ReloadSongFile();
-                                    Response = string.Format("Current song is: {0}\r\n", SongfileContent);
-                                    Core.SendMessage(Response, Core.Channel.Name);
+                                    if (CommandCollection.ContainsKey("!song"))
+                                    {
+                                        if (CommandCollection["!song"].IsAvailable)
+                                        {
+                                            ReloadSongFile();
+                                            Response = string.Format("Current song is: {0}\r\n", SongFileContent);
+                                            Core.SendMessage(Response, Core.Channel.Name);
+                                            Console.WriteLine(string.Concat(">", Response));
+                                            return;
+                                        }
+                                    }
                                 }
                                 break;
 
@@ -163,15 +264,31 @@ namespace Kenbot
                                         {
                                             case "dota2":
                                                 {
-                                                    Response = string.Format("The streamer's Dota2 Level is: {0}\r\n", Core.Streamer.Dota2Level);
-                                                    Core.SendMessage(Response, Core.Channel.Name);
+                                                    if (CommandCollection.ContainsKey("!level dota2"))
+                                                    {
+                                                        if (CommandCollection["!level dota2"].IsAvailable)
+                                                        {
+                                                            Response = string.Format("The streamer's Dota2 Level is: {0}\r\n", Core.Streamer.Dota2Level);
+                                                            Core.SendMessage(Response, Core.Channel.Name);
+                                                            Console.WriteLine(string.Concat(">", Response));
+                                                            return;
+                                                        }
+                                                    }
                                                 }
                                                 break;
 
                                             case "csgo":
                                                 {
-                                                    Response = string.Format("The streamer's CSGO Level is: {0}\r\n", Core.Streamer.CSGOLevel);
-                                                    Core.SendMessage(Response, Core.Channel.Name);
+                                                    if (CommandCollection.ContainsKey("!level csgo"))
+                                                    {
+                                                        if (CommandCollection["!level csgo"].IsAvailable)
+                                                        {
+                                                            Response = string.Format("The streamer's CSGO Level is: {0}\r\n", Core.Streamer.CSGOLevel);
+                                                            Core.SendMessage(Response, Core.Channel.Name);
+                                                            Console.WriteLine(string.Concat(">", Response));
+                                                            return;
+                                                        }
+                                                    }
                                                 }
                                                 break;
                                         }
@@ -187,15 +304,31 @@ namespace Kenbot
                                         {
                                             case "dota2":
                                                 {
-                                                    Response = string.Format("The streamer's Dota2 MMR is: {0}\r\n", Core.Streamer.Dota2Rank);
-                                                    Core.SendMessage(Response, Core.Channel.Name);
+                                                    if (CommandCollection.ContainsKey("!rank dota2"))
+                                                    {
+                                                        if (CommandCollection["!rank dota2"].IsAvailable)
+                                                        {
+                                                            Response = string.Format("The streamer's Dota2 MMR is: {0}\r\n", Core.Streamer.Dota2Rank);
+                                                            Core.SendMessage(Response, Core.Channel.Name);
+                                                            Console.WriteLine(string.Concat(">", Response));
+                                                            return;
+                                                        }
+                                                    }
                                                 }
                                                 break;
 
                                             case "csgo":
                                                 {
-                                                    Response = string.Format("The streamer's CSGO MMR is: {0}\r\n", Core.Streamer.CSGORank);
-                                                    Core.SendMessage(Response, Core.Channel.Name);
+                                                    if (CommandCollection.ContainsKey("!rank csgo"))
+                                                    {
+                                                        if (CommandCollection["!rank csgo"].IsAvailable)
+                                                        {
+                                                            Response = string.Format("The streamer's CSGO MMR is: {0}\r\n", Core.Streamer.CSGORank);
+                                                            Core.SendMessage(Response, Core.Channel.Name);
+                                                            Console.WriteLine(string.Concat(">", Response));
+                                                            return;
+                                                        }
+                                                    }
                                                 }
                                                 break;
                                         }
@@ -205,36 +338,72 @@ namespace Kenbot
 
                             case "!automsg":
                                 {
-                                    if (Core.Channel.Moderators.Contains(SenderNickname))
+                                    if (Core.Channel.Moderators.Contains(SenderNickname.ToLower()))
                                     {
                                         if (UserMessageArgs.Length.Equals(2))
                                         {
                                             if (UserMessageArgs[1].ToLower().Equals("on"))
                                             {
-                                                Core.MOTD.Enabled = true;
+                                                Core.MessageOfTheDay.Enabled = true;
+                                                MCoreJSON["MessageOfTheDay"]["Enabled"] = true;
+                                                Core.MessageOfTheDay.Update();
                                             }
                                             else if (UserMessageArgs[1].ToLower().Equals("off"))
                                             {
-                                                Core.MOTD.Enabled = false;
+                                                Core.MessageOfTheDay.Enabled = false;
+                                                MCoreJSON["MessageOfTheDay"]["Enabled"] = false;
+                                                Core.MessageOfTheDay.Update();
                                             }
                                             else
                                             {
-                                                Console.WriteLine(string.Format("Invalid argument \"{0}\" in command: {1}", UserMessageArgs[1], UserMessage));
+                                                Response = string.Format("Invalid argument \"{0}\" in command: {1}", UserMessageArgs[1], UserMessage);
+                                                Core.SendMessage(Response, Core.Channel.Name, SenderNickname);
+                                                Console.WriteLine(string.Concat(">", Response));
+                                                return;
                                             }
+                                            MCoreFileStream.SetLength(0);
+                                            using (StreamWriter FileWriter = new StreamWriter(MCoreFileStream))
+                                            {
+                                                FileWriter.Write(JsonConvert.SerializeObject(MCoreJSON));
+                                            }
+                                            ReloadCoreFile();
+                                            return;
                                         }
-                                        else if (UserMessageArgs.Length.Equals(3))
+                                        else
                                         {
-                                            string Message = string.Join(" ", UserMessageArgs.Skip(1).Take(UserMessageArgs.Length - 1));
-                                            Core.MOTD.Message = Message;
-                                            int Frequency = 0;
-                                            string FrequencyArg = UserMessageArgs.Last();
-                                            if (int.TryParse(FrequencyArg, out Frequency))
+                                            string[] ReformedUserMessageArgs = new string[3];
+                                            ReformedUserMessageArgs[0] = UserMessageArgs[0];
+                                            ReformedUserMessageArgs[1] = string.Join(" ", UserMessageArgs.Skip(1).Take(UserMessageArgs.Length - 2));
+                                            ReformedUserMessageArgs[2] = UserMessageArgs[UserMessageArgs.Length - 1];
+
+                                            if (ReformedUserMessageArgs.Length.Equals(3))
                                             {
-                                                Core.MOTD.Frequency = Frequency;
-                                            }
-                                            else
-                                            {
-                                                Console.WriteLine(string.Format("Invalid argument \"{0}\" in command: {1}", FrequencyArg, UserMessage));
+                                                string Message = ReformedUserMessageArgs[1];
+                                                Core.MessageOfTheDay.Message = Message;
+                                                MCoreJSON["MessageOfTheDay"]["Message"] = Message;
+
+                                                int Frequency = 0;
+                                                string FrequencyArg = UserMessageArgs.Last();
+                                                if (int.TryParse(FrequencyArg, out Frequency))
+                                                {
+                                                    Core.MessageOfTheDay.Frequency = Frequency;
+                                                    MCoreJSON["MessageOfTheDay"]["Frequency"] = Frequency;
+                                                    Core.MessageOfTheDay.Update();
+                                                }
+                                                else
+                                                {
+                                                    Response = string.Format("Invalid argument \"{0}\" in command: {1}", FrequencyArg, UserMessage);
+                                                    Core.SendMessage(Response, Core.Channel.Name, SenderNickname);
+                                                    Console.WriteLine(string.Concat(">", Response));
+                                                    return;
+                                                }
+                                                MCoreFileStream.SetLength(0);
+                                                using (StreamWriter FileWriter = new StreamWriter(MCoreFileStream))
+                                                {
+                                                    FileWriter.Write(JsonConvert.SerializeObject(MCoreJSON));
+                                                }
+                                                ReloadCoreFile();
+                                                return;
                                             }
                                         }
                                     }

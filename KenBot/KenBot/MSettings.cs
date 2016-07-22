@@ -2,9 +2,11 @@
 {
     class MSettings
     {
-        public string MCoreFileLocation = string.Empty;
-        public string MCoreFileName = "MCore.json";
-        public string SongFileLocation = string.Empty;
-        public string SongFileName = "StreamSong.txt";
+        public string MCoreFileName = string.Empty;
+        public string MCoreFilePath = string.Empty;
+        public string CommandCollectionFilePath = string.Empty;
+        public string CommandCollectionFileName = string.Empty;
+        public string SongFilePath = string.Empty;
+        public string SongFileName = string.Empty;
     }
 }
