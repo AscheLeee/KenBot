@@ -5,6 +5,8 @@ using Newtonsoft.Json;
 using KenBot;
 using System.Collections.Generic;
 using Newtonsoft.Json.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Kenbot
 {
@@ -17,11 +19,6 @@ namespace Kenbot
         public static JObject MCoreJSON;
         public static JObject SettingsJSON;
         public static JObject CommandCollectionJSON;
-
-        public static FileStream SongFileStream;
-        public static FileStream MSettingsFileStream;
-        public static FileStream MCoreFileStream;
-        public static FileStream CommandCollectionFileStream;
 
         public static string MSettingsFileName = "MSettings.json";
         public static string MSettingsFileContent = string.Empty;
@@ -40,35 +37,22 @@ namespace Kenbot
 
         public static void Initialize()
         {
-            StreamReader FileReader;
             try
             {
-                MSettingsFileStream = new FileStream(Path.Combine(Environment.CurrentDirectory, "Data", MSettingsFileName), FileMode.Open);
-                MSettingsFileStream.Lock(0, MSettingsFileStream.Length);
-                FileReader = new StreamReader(MSettingsFileStream);
-                MSettingsFileContent = FileReader.ReadToEnd();
+                MSettingsFileContent = File.ReadAllText(Path.Combine(Environment.CurrentDirectory, "Data", MSettingsFileName));
                 Settings = JsonConvert.DeserializeObject<MSettings>(MSettingsFileContent);
                 SettingsJSON = JObject.Parse(MSettingsFileContent);
 
                 Settings.MCoreFilePath = Path.Combine(Environment.CurrentDirectory, "Data", Settings.MCoreFileName);
-                MCoreFileStream = new FileStream(Settings.MCoreFilePath, FileMode.Open);
-                MCoreFileStream.Lock(0, MSettingsFileStream.Length);
-                FileReader = new StreamReader(MCoreFileStream);
-                MCoreFileContent = FileReader.ReadToEnd();
+                MCoreFileContent = File.ReadAllText(Settings.MCoreFilePath);
                 Core = JsonConvert.DeserializeObject<MCore>(MCoreFileContent);
                 MCoreJSON = JObject.Parse(MCoreFileContent);
 
                 Settings.SongFilePath = Path.Combine(Environment.CurrentDirectory, "Data", Settings.SongFileName);
-                SongFileStream = new FileStream(Settings.SongFilePath, FileMode.Open);
-                SongFileStream.Lock(0, SongFileStream.Length);
-                FileReader = new StreamReader(SongFileStream);
-                SongFileContent = FileReader.ReadToEnd();
+                SongFileContent = File.ReadAllText(Settings.SongFilePath);
 
                 Settings.CommandCollectionFilePath = Path.Combine(Environment.CurrentDirectory, "Data", Settings.CommandCollectionFileName);
-                CommandCollectionFileStream = new FileStream(Settings.CommandCollectionFilePath, FileMode.Open);
-                CommandCollectionFileStream.Lock(0, CommandCollectionFileStream.Length);
-                FileReader = new StreamReader(CommandCollectionFileStream);
-                CommandCollectionFileContent = FileReader.ReadToEnd(); FileReader.Close();
+                CommandCollectionFileContent = File.ReadAllText(Settings.CommandCollectionFilePath);
                 CommandCollection = JsonConvert.DeserializeObject<Dictionary<string, MCommand>>(CommandCollectionFileContent);
                 CommandCollectionJSON = JObject.Parse(CommandCollectionFileContent);
 
@@ -122,11 +106,7 @@ namespace Kenbot
         {
             try
             {
-                SongFileStream = new FileStream(Settings.SongFilePath, FileMode.Open);
-                using (StreamReader FileReader = new StreamReader(SongFileStream))
-                {
-                    SongFileContent = FileReader.ReadToEnd();
-                }
+                SongFileContent = File.ReadAllText(Settings.SongFilePath);
             }
             catch (FileNotFoundException)
             {
@@ -145,16 +125,12 @@ namespace Kenbot
         {
             try
             {
-                MCoreFileStream = new FileStream(Settings.MCoreFilePath, FileMode.Open);
-                using (StreamReader FileReader = new StreamReader(MCoreFileStream))
-                {
-                    MCoreFileContent = FileReader.ReadToEnd();
-                }
+                MCoreFileContent = File.ReadAllText(Settings.MCoreFilePath);
             }
             catch (FileNotFoundException)
             {
                 string Message = string.Empty;
-                if (string.IsNullOrWhiteSpace(SongFileContent))
+                if (string.IsNullOrWhiteSpace(MCoreFileContent))
                 {
                     Message = string.Format("MCore file \"{0}\" was not found.\r\n", Settings.MCoreFileName);
                 }
@@ -168,16 +144,12 @@ namespace Kenbot
         {
             try
             {
-                CommandCollectionFileStream = new FileStream(Settings.CommandCollectionFilePath, FileMode.Open);
-                using (StreamReader FileReader = new StreamReader(CommandCollectionFileStream))
-                {
-                    CommandCollectionFileContent = FileReader.ReadToEnd();
-                }
+                CommandCollectionFileContent = File.ReadAllText(Settings.CommandCollectionFilePath);
             }
             catch (FileNotFoundException)
             {
                 string Message = string.Empty;
-                if (string.IsNullOrWhiteSpace(SongFileContent))
+                if (string.IsNullOrWhiteSpace(CommandCollectionFileContent))
                 {
                     Message = string.Format("Commands file \"{0}\" was not found.\r\n", Settings.CommandCollectionFileName);
                 }
@@ -193,7 +165,8 @@ namespace Kenbot
             if (!string.IsNullOrWhiteSpace(_IRCMessage))
             {
                 string Response = string.Empty;
-                int FirstSpace = _IRCMessage.IndexOf(' ');
+                int IndexOfFirstSpace = _IRCMessage.IndexOf(' ');
+                int IndexOfPRIVMSG = _IRCMessage.IndexOf("PRIVMSG");
 
                 if (_IRCMessage.Length > 4)
                 {
@@ -204,14 +177,13 @@ namespace Kenbot
                         return;
                     }
                 }
-                if (!FirstSpace.Equals(-1)
-                   && _IRCMessage.Length > FirstSpace + 8
-                   && _IRCMessage.Substring(FirstSpace + 1, 7).Equals("PRIVMSG"))
+                if (!IndexOfFirstSpace.Equals(-1)
+                   && _IRCMessage.Length > IndexOfFirstSpace + 8
+                   && !IndexOfPRIVMSG.Equals(-1))
                 {
-                    #region Chat Message Received
                     string[] IRCMessageArgs = _IRCMessage.Split(' ');
                     int ExclamationPoint = _IRCMessage.IndexOf('!');
-                    int LastSemiColon = _IRCMessage.LastIndexOf(':');
+                    int LastSemiColon = _IRCMessage.IndexOf(':', IndexOfPRIVMSG);
                     int Hashtag = _IRCMessage.IndexOf('#');
 
                     string SenderNickname = _IRCMessage.Substring(1, ExclamationPoint - 1);
@@ -234,6 +206,7 @@ namespace Kenbot
                                             Response = "Available commands: !commands, !song, !level [csgo/dota2], !rank [csgo/dota2]\r\n";
                                             Core.SendMessage(Response, Core.Channel.Name);
                                             Console.WriteLine(string.Concat(">", Response));
+                                            Task.Run(new Action(CommandCollection["!commands"].AttemptRunCooldown));
                                             return;
                                         }
                                     }
@@ -250,6 +223,7 @@ namespace Kenbot
                                             Response = string.Format("Current song is: {0}\r\n", SongFileContent);
                                             Core.SendMessage(Response, Core.Channel.Name);
                                             Console.WriteLine(string.Concat(">", Response));
+                                            CommandCollection["!song"].AttemptRunCooldown();
                                             return;
                                         }
                                     }
@@ -271,6 +245,7 @@ namespace Kenbot
                                                             Response = string.Format("The streamer's Dota2 Level is: {0}\r\n", Core.Streamer.Dota2Level);
                                                             Core.SendMessage(Response, Core.Channel.Name);
                                                             Console.WriteLine(string.Concat(">", Response));
+                                                            Task.Run(new Action(CommandCollection["!commands"].AttemptRunCooldown));
                                                             return;
                                                         }
                                                     }
@@ -286,6 +261,7 @@ namespace Kenbot
                                                             Response = string.Format("The streamer's CSGO Level is: {0}\r\n", Core.Streamer.CSGOLevel);
                                                             Core.SendMessage(Response, Core.Channel.Name);
                                                             Console.WriteLine(string.Concat(">", Response));
+                                                            Task.Run(new Action(CommandCollection["!commands"].AttemptRunCooldown));
                                                             return;
                                                         }
                                                     }
@@ -311,6 +287,7 @@ namespace Kenbot
                                                             Response = string.Format("The streamer's Dota2 MMR is: {0}\r\n", Core.Streamer.Dota2Rank);
                                                             Core.SendMessage(Response, Core.Channel.Name);
                                                             Console.WriteLine(string.Concat(">", Response));
+                                                            Task.Run(new Action(CommandCollection["!commands"].AttemptRunCooldown));
                                                             return;
                                                         }
                                                     }
@@ -326,6 +303,7 @@ namespace Kenbot
                                                             Response = string.Format("The streamer's CSGO MMR is: {0}\r\n", Core.Streamer.CSGORank);
                                                             Core.SendMessage(Response, Core.Channel.Name);
                                                             Console.WriteLine(string.Concat(">", Response));
+                                                            Task.Run(new Action(CommandCollection["!commands"].AttemptRunCooldown));
                                                             return;
                                                         }
                                                     }
@@ -361,11 +339,7 @@ namespace Kenbot
                                                 Console.WriteLine(string.Concat(">", Response));
                                                 return;
                                             }
-                                            MCoreFileStream.SetLength(0);
-                                            using (StreamWriter FileWriter = new StreamWriter(MCoreFileStream))
-                                            {
-                                                FileWriter.Write(JsonConvert.SerializeObject(MCoreJSON));
-                                            }
+                                            File.WriteAllText(Settings.MCoreFilePath, JsonConvert.SerializeObject(MCoreJSON));
                                             ReloadCoreFile();
                                             return;
                                         }
@@ -395,13 +369,8 @@ namespace Kenbot
                                                     Response = string.Format("Invalid argument \"{0}\" in command: {1}", FrequencyArg, UserMessage);
                                                     Core.SendMessage(Response, Core.Channel.Name, SenderNickname);
                                                     Console.WriteLine(string.Concat(">", Response));
-                                                    return;
                                                 }
-                                                MCoreFileStream.SetLength(0);
-                                                using (StreamWriter FileWriter = new StreamWriter(MCoreFileStream))
-                                                {
-                                                    FileWriter.Write(JsonConvert.SerializeObject(MCoreJSON));
-                                                }
+                                                File.WriteAllText(Settings.MCoreFilePath, JsonConvert.SerializeObject(MCoreJSON));
                                                 ReloadCoreFile();
                                                 return;
                                             }
@@ -412,7 +381,6 @@ namespace Kenbot
                         }
                     }
                 }
-                #endregion
             }
         }
     }

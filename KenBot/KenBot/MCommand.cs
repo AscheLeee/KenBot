@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Threading;
 
 namespace KenBot
 {
@@ -7,8 +8,9 @@ namespace KenBot
         public int Frequency; //In seconds
         private Stopwatch CooldownTimer = new Stopwatch();
         public bool IsAvailable = true;
+        public Thread CooldownThread;
 
-        public void RunCooldown()
+        private void RunCooldown()
         {
             CooldownTimer.Start();
             IsAvailable = false;
@@ -16,6 +18,12 @@ namespace KenBot
             { }
             IsAvailable = true;
             CooldownTimer.Stop();
+        }
+
+        public void AttemptRunCooldown()
+        {
+            CooldownThread = new Thread(RunCooldown);
+            CooldownThread.Start();
         }
     }
 }

@@ -1,4 +1,5 @@
-﻿using System.Threading;
+﻿using System;
+using System.Threading;
 
 namespace KenBot
 {
@@ -8,7 +9,7 @@ namespace KenBot
         //Prefer to not need reference to the channel name.
         public string ChannelName = string.Empty;
         //Prefer to have Frequency in TimeSpan type.
-        public int Frequency = 300; //In seconds
+        public int Frequency = 60; //In seconds
         public bool Enabled;
         public Thread PostThread;
         public delegate void SendMessageDel(string _Message, string _ChannelName);
@@ -41,24 +42,29 @@ namespace KenBot
             if (Enabled && !SendMessageMethod.Equals(null))
             {
                 PostThread = new Thread(StartPosting);
-                PostThread.IsBackground = true;
                 PostThread.Start();
             }
         }
 
         public void AttemptStopPosting()
         {
-            if (!PostThread.Equals(null) &&
-                PostThread.IsAlive)
+            try
             {
-                try
+                if (PostThread.IsAlive)
                 {
-                    PostThread.Abort();
+                    try
+                    {
+                        PostThread.Abort();
+                    }
+                    catch (ThreadAbortException)
+                    {
+
+                    }
                 }
-                catch (ThreadAbortException)
-                {
-                    PostThread = null;
-                }
+            }
+            catch (NullReferenceException)
+            {
+
             }
         }
     }

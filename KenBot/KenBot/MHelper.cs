@@ -43,8 +43,12 @@ namespace KenBot
             if (!_ModsCommandResponse.Length.Equals(0)
                 && ModNicknames.Length > 2)
             {
-                string NicknameLine = _ModsCommandResponse.Split(':')[3];
-                Nicknames.AddRange(NicknameLine.Remove(0, 1).Remove(NicknameLine.Length - 4).Split(", ".ToCharArray(), StringSplitOptions.RemoveEmptyEntries));
+                string[] NicknameLines = _ModsCommandResponse.Split(':');
+                if (NicknameLines.Length >= 3)
+                {
+                    string NicknameLine = _ModsCommandResponse.Split(':')[3];
+                    Nicknames.AddRange(NicknameLine.Remove(0, 1).Remove(NicknameLine.Length - 4).Split(", ".ToCharArray(), StringSplitOptions.RemoveEmptyEntries));
+                }
             }
             return Nicknames;
         }
