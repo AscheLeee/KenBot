@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace KenBot
+namespace KenBotClient
 {
     public class MHelper
     {
@@ -25,32 +25,36 @@ namespace KenBot
 
         public static List<string> GetModerators(string _ModsCommandResponse)
         {
-            List<string> Nicknames = new List<string>();
-            string[] ModNicknames = _ModsCommandResponse.Split(':');
-            string ChannelOwnerNickname = string.Empty;
-            int IndexOfHashtag = _ModsCommandResponse.IndexOf('#');
-            int IndexOfSemiColon = _ModsCommandResponse.IndexOf(':', IndexOfHashtag);
-
-            if (!IndexOfHashtag.Equals(-1))
+            if (!_ModsCommandResponse.Contains("There are no moderators of this room."))
             {
-                if (!IndexOfSemiColon.Equals(-1))
-                {
-                    ChannelOwnerNickname = _ModsCommandResponse.Substring(IndexOfHashtag + 1, IndexOfSemiColon - IndexOfHashtag - 2);
-                    Nicknames.Add(ChannelOwnerNickname.ToLower());
-                }
-            }
+                List<string> Nicknames = new List<string>();
+                string[] ModNicknames = _ModsCommandResponse.Split(':');
+                string ChannelOwnerNickname = string.Empty;
+                int IndexOfHashtag = _ModsCommandResponse.IndexOf('#');
+                int IndexOfSemiColon = _ModsCommandResponse.IndexOf(':', IndexOfHashtag);
 
-            if (!_ModsCommandResponse.Length.Equals(0)
-                && ModNicknames.Length > 2)
-            {
-                string[] NicknameLines = _ModsCommandResponse.Split(':');
-                if (NicknameLines.Length >= 3)
+                if (!IndexOfHashtag.Equals(-1))
                 {
-                    string NicknameLine = _ModsCommandResponse.Split(':')[3];
-                    Nicknames.AddRange(NicknameLine.Remove(0, 1).Remove(NicknameLine.Length - 4).Split(", ".ToCharArray(), StringSplitOptions.RemoveEmptyEntries));
+                    if (!IndexOfSemiColon.Equals(-1))
+                    {
+                        ChannelOwnerNickname = _ModsCommandResponse.Substring(IndexOfHashtag + 1, IndexOfSemiColon - IndexOfHashtag - 2);
+                        Nicknames.Add(ChannelOwnerNickname.ToLower());
+                    }
                 }
+
+                if (!_ModsCommandResponse.Length.Equals(0)
+                    && ModNicknames.Length > 2)
+                {
+                    string[] NicknameLines = _ModsCommandResponse.Split(':');
+                    if (NicknameLines.Length >= 3)
+                    {
+                        string NicknameLine = _ModsCommandResponse.Split(':')[3];
+                        Nicknames.AddRange(NicknameLine.Remove(0, 1).Remove(NicknameLine.Length - 4).Split(", ".ToCharArray(), StringSplitOptions.RemoveEmptyEntries));
+                    }
+                }
+                return Nicknames;
             }
-            return Nicknames;
+            return new List<string>();
         }
     }
 }

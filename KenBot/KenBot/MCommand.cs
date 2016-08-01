@@ -1,7 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Threading;
 
-namespace KenBot
+namespace KenBotClient
 {
     public class MCommand
     {

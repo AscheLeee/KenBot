@@ -1,14 +1,12 @@
 using System;
 using System.IO;
 using System.Linq;
-using Newtonsoft.Json;
-using KenBot;
 using System.Collections.Generic;
-using Newtonsoft.Json.Linq;
-using System.Threading;
 using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
-namespace Kenbot
+namespace KenBotClient
 {
     static class Program
     {
@@ -67,7 +65,7 @@ namespace Kenbot
                 string ModsCommandResponse = Core.ListMods();
                 Core.Channel.Moderators = MHelper.GetModerators(ModsCommandResponse);
 
-                Core.SendMessage("Bot is on duty.", Core.Channel.Name, Core.Channel.OwnerNickname);
+                //Core.SendMessage("Bot is on duty.", Core.Channel.Name, Core.Channel.OwnerNickname);
                 Console.WriteLine("Bot is on duty.");
 
                 Core.MessageOfTheDay.SendMessageMethod = Core.SendMessage;
@@ -223,7 +221,7 @@ namespace Kenbot
                                             Response = string.Format("Current song is: {0}\r\n", SongFileContent);
                                             Core.SendMessage(Response, Core.Channel.Name);
                                             Console.WriteLine(string.Concat(">", Response));
-                                            CommandCollection["!song"].AttemptRunCooldown();
+                                            Task.Run(new Action(CommandCollection["!song"].AttemptRunCooldown));
                                             return;
                                         }
                                     }

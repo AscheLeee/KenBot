@@ -4,7 +4,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 
-namespace KenBot
+namespace KenBotClient
 {
     public delegate void OnMessageReceived(string Content);
 

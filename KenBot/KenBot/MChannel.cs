@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace KenBot
+namespace KenBotClient
 {
     public class MChannel
     {

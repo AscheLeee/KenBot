@@ -1,6 +1,6 @@
-﻿namespace KenBot
+﻿namespace KenBotClient
 {
-    class MSettings
+    public class MSettings
     {
         public string MCoreFileName = string.Empty;
         public string MCoreFilePath = string.Empty;

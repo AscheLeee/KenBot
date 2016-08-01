@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Threading;
 
-namespace KenBot
+namespace KenBotClient
 {
     public class MOTD
     {

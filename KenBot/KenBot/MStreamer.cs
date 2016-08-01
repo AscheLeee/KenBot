@@ -1,4 +1,4 @@
-﻿namespace KenBot
+﻿namespace KenBotClient
 {
     public class MStreamer
     {
